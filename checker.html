@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IT Resume Analyzer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 { color: #333; margin-bottom: 10px; }
+        .subtitle { color: #666; margin-bottom: 30px; }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .upload-area:hover { background: #e6e9ff; }
+        .upload-area.dragover { background: #d4d8ff; border-color: #764ba2; }
+        
+        input[type="file"] { display: none; }
+        .job-description {
+            width: 100%;
+            min-height: 150px;
+            padding: 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-size: 14px;
+            resize: vertical;
+        }
+        
+        .analyze-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            width: 100%;
+            transition: transform 0.2s;
+        }
+        .analyze-btn:hover { transform: translateY(-2px); }
+        .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .results {
+            margin-top: 30px;
+            display: none;
+        }
+        .score-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .score { font-size: 48px; font-weight: bold; margin-bottom: 5px; }
+        .score-label { font-size: 18px; opacity: 0.9; }
+        
+        .details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .detail-card {
+            background: #f8f9ff;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .detail-card h3 { color: #333; margin-bottom: 10px; }
+        .keyword-tag {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            margin: 2px;
+        }
+        .missing { background: #ff6b6b; }
+        .present { background: #51cf66; }
+        
+        .loading { text-align: center; padding: 40px; }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 IT Resume Analyzer</h1>
+        <p class="subtitle">Analyze resumes against job requirements - 100% client-side & private</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <p style="font-size: 24px; margin-bottom: 10px;">📄</p>
+            <p><strong>Drop your PDF resume here</strong></p>
+            <p>or click to browse</p>
+            <input type="file" id="fileInput" accept=".pdf">
+        </div>
+        
+        <div>
+            <h3>Job Requirements (Paste IT job description)</h3>
+            <textarea class="job-description" id="jobDesc" placeholder="Paste the job description here. Include required skills, experience, education, etc.
+
+Example:
+- 5+ years JavaScript experience
+- React or Angular framework
+- Node.js backend
+- AWS cloud knowledge
+- Bachelor's degree in CS"></textarea>
+        </div>
+        
+        <button class="analyze-btn" id="analyzeBtn" disabled>Analyze Resume</button>
+        
+        <div class="loading" id="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Analyzing your resume...</p>
+        </div>
+        
+        <div class="results" id="results">
+            <div class="score-card">
+                <div class="score" id="matchScore">0%</div>
+                <div class="score-label">Match Score</div>
+            </div>
+            
+            <div class="details-grid">
+                <div class="detail-card">
+                    <h3>✅ Skills Found</h3>
+                    <div id="foundSkills"></div>
+                </div>
+                <div class="detail-card">
+                    <h3>❌ Missing Skills</h3>
+                    <div id="missingSkills"></div>
+                </div>
+                <div class="detail-card">
+                    <h3>📊 Experience Analysis</h3>
+                    <div id="experienceAnalysis"></div>
+                </div>
+                <div class="detail-card">
+                    <h3>🎯 Recommendations</h3>
+                    <div id="recommendations"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // IT Skills Database
+        const SKILLS_DB = {
+            languages: ['javascript', 'python', 'java', 'c++', 'c#', 'php', 'ruby', 'go', 'rust', 'typescript'],
+            frontend: ['react', 'angular', 'vue', 'html', 'css', 'sass', 'less', 'webpack', 'babel'],
+            backend: ['node.js', 'express', 'django', 'flask', 'spring', 'laravel', 'rails'],
+            database: ['mysql', 'postgresql', 'mongodb', 'redis', 'elasticsearch', 'oracle'],
+            cloud: ['aws', 'azure', 'gcp', 'docker', 'kubernetes', 'terraform', 'jenkins'],
+            tools: ['git', 'linux', 'bash', 'agile', 'scrum', 'jira', 'confluence']
+        };
+
+        let resumeText = '';
+        
+        // File upload handling
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFile(e.dataTransfer.files[0]);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            handleFile(e.target.files[0]);
+        });
+        
+        async function handleFile(file) {
+            if (!file || file.type !== 'application/pdf') {
+                alert('Please select a valid PDF file');
+                return;
+            }
+            
+            uploadArea.innerHTML = `<p>📄 Processing: <strong>${file.name}</strong></p>`;
+            analyzeBtn.disabled = true;
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+                
+                let text = '';
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const content = await page.getTextContent();
+                    text += content.items.map(item => item.str).join(' ') + ' ';
+                }
+                
+                resumeText = text.toLowerCase();
+                uploadArea.innerHTML = `<p>✅ Loaded: <strong>${file.name}</strong> (${resumeText.length} characters)</p>`;
+                analyzeBtn.disabled = false;
+            } catch (error) {
+                console.error('PDF Error:', error);
+                alert('Failed to read PDF. Try another file.');
+                uploadArea.innerHTML = `
+                    <p style="font-size: 24px; margin-bottom: 10px;">📄</p>
+                    <p><strong>Drop your PDF resume here</strong></p>
+                    <p>or click to browse</p>
+                `;
+            }
+        }
+        
+        // Analysis function
+        analyzeBtn.addEventListener('click', analyzeResume);
+        
+        function analyzeResume() {
+            const jobDesc = document.getElementById('jobDesc').value.toLowerCase();
+            if (!jobDesc.trim()) {
+                alert('Please paste job requirements first');
+                return;
+            }
+            
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+            
+            setTimeout(() => {
+                const analysis = performAnalysis(resumeText, jobDesc);
+                displayResults(analysis);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('results').style.display = 'block';
+            }, 500);
+        }
+        
+        function performAnalysis(resume, job) {
+            const allSkills = [...new Set([
+                ...SKILLS_DB.languages,
+                ...SKILLS_DB.frontend,
+                ...SKILLS_DB.backend,
+                ...SKILLS_DB.database,
+                ...SKILLS_DB.cloud,
+                ...SKILLS_DB.tools
+            ])];
+            
+            // Extract skills from job description
+            const requiredSkills = allSkills.filter(skill => 
+                job.includes(skill.replace('.js', '')) || job.includes(skill)
+            );
+            
+            // Check which skills are present
+            const foundSkills = requiredSkills.filter(skill => 
+                resume.includes(skill.replace('.js', '').toLowerCase()) || 
+                resume.includes(skill.toLowerCase())
+            );
+            
+            const missingSkills = requiredSkills.filter(skill => !foundSkills.includes(skill));
+            
+            // Calculate match score
+            const baseScore = requiredSkills.length > 0 ? 
+                (foundSkills.length / requiredSkills.length) * 100 : 0;
+            
+            // Bonus points for experience mentions
+            const experienceBonus = calculateExperienceBonus(resume, job);
+            const totalScore = Math.min(95, Math.round(baseScore + experienceBonus));
+            
+            // Generate recommendations
+            const recommendations = generateRecommendations(missingSkills, resume, job);
+            
+            return {
+                score: totalScore,
+                foundSkills,
+                missingSkills,
+                experienceAnalysis: getExperienceAnalysis(resume, job),
+                recommendations
+            };
+        }
+        
+        function calculateExperienceBonus(resume, job) {
+            const experienceYears = resume.match(/(\d+)\+?\s*years?/gi) || [];
+            const jobYears = job.match(/(\d+)\+?\s*years?/gi) || [];
+            
+            if (jobYears.length > 0 && experienceYears.length > 0) {
+                const reqYears = parseInt(jobYears[0]);
+                const hasYears = Math.max(...experienceYears.map(y => parseInt(y)));
+                return hasYears >= reqYears ? 10 : 0;
+            }
+            return 5; // Default bonus for mentioning experience
+        }
+        
+        function getExperienceAnalysis(resume, job) {
+            const expKeywords = ['senior', 'lead', 'manager', 'architect'];
+            const hasSeniorExp = expKeywords.some(keyword => 
+                resume.includes(keyword) && job.includes(keyword)
+            );
+            
+            return hasSeniorExp ? 
+                "✅ Senior-level experience aligns with role" : 
+                "⚠️ Consider highlighting leadership experience";
+        }
+        
+        function generateRecommendations(missingSkills, resume, job) {
+            const recs = [];
+            
+            if (missingSkills.length > 0) {
+                recs.push(`📚 Learn: ${missingSkills.slice(0, 3).join(', ')}`);
+            }
+            
+            if (job.includes('degree') && !resume.includes('bachelor') && !resume.includes('master')) {
+                recs.push('🎓 Highlight education if applicable');
+            }
+            
+            if (!resume.includes('github') && !resume.includes('portfolio')) {
+                recs.push('🌐 Add GitHub/Portfolio links');
+            }
+            
+            if (recs.length === 0) {
+                recs.push('🎉 Great match! Tailor resume to specific projects');
+            }
+            
+            return recs;
+        }
+        
+        function displayResults(analysis) {
+            document.getElementById('matchScore').textContent = analysis.score + '%';
+            
+            // Display found skills
+            const foundContainer = document.getElementById('foundSkills');
+            foundContainer.innerHTML = analysis.foundSkills.length > 0 
+                ? analysis.foundSkills.map(skill => 
+                    `<span class="keyword-tag present">${skill}</span>`
+                  ).join('')
+                : '<p style="color: #666;">No specific skills identified</p>';
+            
+            // Display missing skills
+            const missingContainer = document.getElementById('missingSkills');
+            missingContainer.innerHTML = analysis.missingSkills.length > 0
+                ? analysis.missingSkills.map(skill => 
+                    `<span class="keyword-tag missing">${skill}</span>`
+                  ).join('')
+                : '<p style="color: #51cf66;">🎉 All key skills present!</p>';
+            
+            // Display experience analysis
+            document.getElementById('experienceAnalysis').innerHTML = 
+                `<p>${analysis.experienceAnalysis}</p>`;
+            
+            // Display recommendations
+            document.getElementById('recommendations').innerHTML = 
+                analysis.recommendations.map(rec => `<p>• ${rec}</p>`).join('');
+        }
+    </script>
+</body>
+</html>
